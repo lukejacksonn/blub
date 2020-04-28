@@ -1,0 +1,6 @@
+{
+  "type": "module",
+  "dependencies": {
+    "directory-tree": "^2.2.4"
+  }
+}
