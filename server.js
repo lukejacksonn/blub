@@ -16,7 +16,6 @@ const toURL = (code) =>
   'data:text/javascript;base64,' +
   Buffer.from(code, 'utf-8').toString('base64');
 
-const isRouteRequest = (pathname) => !~pathname.split('/').pop().indexOf('.');
 const removeFileName = (x) => x.split('/').slice(0, -1).join('/');
 
 const flatten = (file) => {
@@ -25,13 +24,21 @@ const flatten = (file) => {
   const [imports] = parse(source);
   return toURL(
     imports
-      .map((i) => source.substring(i.s, i.e))
+      .map((i) => {
+        const relative = source.substring(i.s, i.e);
+        const absolute = path.resolve(folder, relative);
+        const escape =
+          'http://localhost:8080/' + path.relative(process.cwd(), absolute);
+        return { relative, absolute, escape };
+      })
       .reduce(
-        (code, i) => code.replace(i, flatten(path.resolve(folder, i))),
+        (code, i) => code.replace(i.relative, flatten(i.absolute)),
         source
       )
   );
 };
+
+const isRouteRequest = (pathname) => !~pathname.split('/').pop().indexOf('.');
 
 const handleRequest = (req, res) => {
   const pathname = url.parse(req.url).pathname.slice(1);
@@ -39,10 +46,10 @@ const handleRequest = (req, res) => {
     const entry = path.join(process.cwd(), pathname, '/index.js');
     const filetree = directoryTree(pathname || '.');
     res.write(`
-        <script type="module">
-          console.log(${JSON.stringify(filetree)})
-          import("${flatten(entry)}")
-        </script>
+      <script type="module">
+        console.log(${JSON.stringify(filetree)})
+        import("${flatten(entry)}")
+      </script>
     `);
     res.end();
   } else {
