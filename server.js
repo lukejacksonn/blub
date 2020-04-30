@@ -17,30 +17,29 @@ const toURL = (code) =>
   Buffer.from(code, 'utf-8').toString('base64');
 
 const removeFileName = (x) => x.split('/').slice(0, -1).join('/');
+const isExternal = (x) => x.startsWith('http');
 
-const flatten = (file) => {
+const flatten = async (file) => {
   const folder = removeFileName(file);
   const source = fs.readFileSync(file, 'utf-8');
   const [imports] = parse(source);
-  return toURL(
-    imports
-      .map((i) => {
-        const relative = source.substring(i.s, i.e);
-        const absolute = path.resolve(folder, relative);
-        const escape =
-          'http://localhost:8080/' + path.relative(process.cwd(), absolute);
-        return { relative, absolute, escape };
-      })
-      .reduce(
-        (code, i) => code.replace(i.relative, flatten(i.absolute)),
-        source
-      )
-  );
+  const contents = await imports.reduce(async (a, i) => {
+    const code = await a;
+    const relative = source.substring(i.s, i.e);
+    const absolute = isExternal(relative)
+      ? relative
+      : path.resolve(folder, relative);
+    const escape =
+      'http://localhost:8080/' + path.relative(process.cwd(), absolute);
+    const flat = !isExternal(relative) && (await flatten(absolute));
+    return code.replace(relative, isExternal(relative) ? relative : flat);
+  }, Promise.resolve(source));
+  return toURL(contents);
 };
 
 const isRouteRequest = (pathname) => !~pathname.split('/').pop().indexOf('.');
 
-const handleRequest = (req, res) => {
+const handleRequest = async (req, res) => {
   const pathname = url.parse(req.url).pathname.slice(1);
   if (isRouteRequest(pathname)) {
     const entry = path.join(process.cwd(), pathname, '/index.js');
@@ -48,7 +47,7 @@ const handleRequest = (req, res) => {
     res.write(`
       <script type="module">
         console.log(${JSON.stringify(filetree)})
-        import("${flatten(entry)}")
+        import("${await flatten(entry)}")
       </script>
     `);
     res.end();
