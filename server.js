@@ -6,6 +6,10 @@ import mimetypes from './types.js';
 import directoryTree from './directory-tree.js';
 import { init, parse } from './lexer.js';
 
+import { topLevelLoad } from './es-module-shims.js';
+
+topLevelLoad('http://localhost:8080/test1/index.js').then(console.log);
+
 const mimes = Object.entries(mimetypes).reduce(
   (all, [type, exts]) =>
     Object.assign(all, ...exts.map((ext) => ({ [ext]: type }))),
