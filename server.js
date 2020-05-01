@@ -8,8 +8,6 @@ import { init, parse } from './lexer.js';
 
 import { topLevelLoad } from './es-module-shims.js';
 
-topLevelLoad('http://localhost:8080/test1/index.js').then(console.log);
-
 const mimes = Object.entries(mimetypes).reduce(
   (all, [type, exts]) =>
     Object.assign(all, ...exts.map((ext) => ({ [ext]: type }))),
@@ -48,13 +46,59 @@ const handleRequest = async (req, res) => {
   if (isRouteRequest(pathname)) {
     const entry = path.join(process.cwd(), pathname, '/index.js');
     const filetree = directoryTree(pathname || '.');
-    res.write(`
-      <script type="module">
-        console.log(${JSON.stringify(filetree)})
-        import("${await flatten(entry)}")
-      </script>
-    `);
-    res.end();
+
+    // fs.readdir('blob', (err, files) => {
+    //   if (err) throw err;
+    //   for (const file of files) {
+    //     fs.unlink(path.join('blob', file), (err) => {
+    //       if (err) throw err;
+    //     });
+    //   }
+    // });
+
+    topLevelLoad('http://localhost:8080/test1/index.js').then((load) => {
+      let blobs = fs.readdirSync('blob');
+      blobs = blobs.map((x) => [
+        x,
+        encodeURIComponent(fs.readFileSync(path.join('blob/', x))),
+      ]);
+
+      res.write(`
+        <script type="module">
+          let blobs = ${JSON.stringify(blobs)}
+          blobs = Object.fromEntries(blobs.map(([k,v]) => [k, decodeURIComponent(v)]))
+
+          function toURL(code, type = 'application/javascript') {
+              return URL.createObjectURL(
+                  new Blob([code], { type })
+              );
+          }
+
+          const importExportRegex = /(from|import)[ \\n]?[\/](.*?)[\/]['"](.*?)['"];?/;
+          const importsForCode = code => (code.match(new RegExp(importExportRegex, 'gm')) || []).map(
+            x => x.match(new RegExp(importExportRegex))[3]
+          );
+
+          const getCode = key => blobs[key]
+
+          const walkTree = (currFile, mapping) => {
+            let imports = importsForCode(blobs[currFile + '.js']);
+            for (const i of imports) {
+              const blob = mapping[i];
+              if (!blob) mapping[i] = walkTree(i, mapping);
+              blobs[currFile + '.js'] = blobs[currFile + '.js'].replace(new RegExp(i, 'g'), mapping[i])
+            }
+            console.log(blobs[currFile + '.js']);
+            return toURL(blobs[currFile + '.js']);
+          }
+
+          import(walkTree("${load.b}", {}))
+          </script>
+          `);
+      // console.log(${JSON.stringify(filetree)})
+      // import("${await flatten(entry)}")
+      res.end();
+    });
   } else {
     const ext = pathname.replace(/^.*[\.\/\\]/, '').toLowerCase();
     fs.readFile(pathname, 'binary', (err, file) => {

@@ -1,4 +1,4 @@
-import stylis from /*'./stylis.js'*/'https://localhost:8080/blob/0f5be687765d63b12794f156bf';
+import stylis from /*'./stylis.js'*/'44c66b9f4a62c';
 
 const cache = {};
 const hash = () =>

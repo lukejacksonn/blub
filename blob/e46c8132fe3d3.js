@@ -1,5 +1,5 @@
 
-import { react, html, css } from /*'https://unpkg.com/rplus'*/'https://localhost:8080/blob/83a301f65b103c2968505a270e';
+import { react, html, css } from /*'https://unpkg.com/rplus'*/'2118220e6917a';
 
 
 export const f0414 = (props, children) => html`<div className=${style}><span>f0414</span></div>`;

@@ -17,13 +17,11 @@ const toURL = (code) =>
 
 export function createBlob(source) {
   // console.log(source.slice(0, 100));
-  const uid =
-    Math.random().toString(16).slice(2) +
-    '' +
-    Math.random().toString(16).slice(2);
+  const uid = Math.random().toString(16).slice(2);
   fs.writeFileSync(`./blob/${uid}.js`, source);
   // return toURL(source);
-  return `https://localhost:8080/blob/${uid}`;
+  // return uid;
+  return uid;
 }
 
 export const hasDocument = typeof document !== 'undefined';
