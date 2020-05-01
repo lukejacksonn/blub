@@ -79,8 +79,6 @@ const handleRequest = async (req, res) => {
             x => x.match(new RegExp(importExportRegex))[3]
           );
 
-          const getCode = key => blobs[key]
-
           const walkTree = (currFile, mapping) => {
             let imports = importsForCode(blobs[currFile + '.js']);
             for (const i of imports) {
@@ -88,13 +86,12 @@ const handleRequest = async (req, res) => {
               if (!blob) mapping[i] = walkTree(i, mapping);
               blobs[currFile + '.js'] = blobs[currFile + '.js'].replace(new RegExp(i, 'g'), mapping[i])
             }
-            console.log(blobs[currFile + '.js']);
             return toURL(blobs[currFile + '.js']);
           }
 
           import(walkTree("${load.b}", {}))
           </script>
-          `);
+      `);
       // console.log(${JSON.stringify(filetree)})
       // import("${await flatten(entry)}")
       res.end();

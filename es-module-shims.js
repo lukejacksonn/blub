@@ -30,7 +30,6 @@ export async function topLevelLoad(url, source) {
   await loadAll(load, seen);
   lastLoad = undefined;
   resolveDeps(load, seen);
-  console.dir(load, { depth: 100 });
   //   const module = await dynamicImport(load.b);
   // if the top-level load is a shell, run its update function
   //   if (load.s) (await dynamicImport(load.s)).u$_(module);
