@@ -1,3 +1,5 @@
+import { init, parse } from './lexer.js';
+import fetch from './fetch.js';
 import {
   baseUrl as pageBaseUrl,
   resolveImportMap,
@@ -7,13 +9,9 @@ import {
   hasDocument,
   resolveIfNotPlainOrUrl,
   emptyImportMap,
-  dynamicImport,
   resolvedPromise,
 } from './common.js';
-import { init, parse } from './lexer.js';
-import fetch from './fetch.js';
 
-let id = 0;
 const registry = {};
 
 async function loadAll(load, seen) {
@@ -52,6 +50,7 @@ Object.defineProperties(importShim, {
   l: { value: undefined, writable: true },
   e: { value: undefined, writable: true },
 });
+
 importShim.fetch = (url) => fetch(url);
 
 let lastLoad;
@@ -296,37 +295,15 @@ function getOrCreateLoad(url, source) {
 
 let importMapPromise;
 
-if (hasDocument) {
-  // preload import maps
-  for (const script of document.querySelectorAll(
-    'script[type="importmap-shim"][src]'
-  ))
-    script._f = fetch(script.src);
-  // load any module scripts
-  for (const script of document.querySelectorAll('script[type="module-shim"]'))
-    topLevelLoad(
-      script.src || `${pageBaseUrl}?${id++}`,
-      script.src ? null : script.innerHTML
-    );
-}
-
 async function resolve(id, parentUrl) {
   if (!importMapPromise) {
-    importMapPromise = resolvedPromise;
-    if (hasDocument)
-      for (const script of document.querySelectorAll(
-        'script[type="importmap-shim"]'
-      )) {
-        importMapPromise = importMapPromise.then(async () => {
-          importShim.map = await resolveAndComposeImportMap(
-            script.src
-              ? await (await (script._f || fetch(script.src))).json()
-              : JSON.parse(script.innerHTML),
-            script.src || pageBaseUrl,
-            importShim.map
-          );
-        });
-      }
+    importMapPromise = resolvedPromise.then(async () => {
+      importShim.map = await resolveAndComposeImportMap(
+        {},
+        pageBaseUrl,
+        importShim.map
+      );
+    });
   }
   await importMapPromise;
   return (
