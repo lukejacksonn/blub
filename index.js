@@ -2,19 +2,12 @@ import fs from 'fs';
 import http from 'http';
 import url from 'url';
 import path from 'path';
-import mimetypes from './types.js';
-import { init } from './lexer.js';
 
-import { topLevelLoad } from './es-module-shims.js';
-
-const mimes = Object.entries(mimetypes).reduce(
-  (all, [type, exts]) =>
-    Object.assign(all, ...exts.map((ext) => ({ [ext]: type }))),
-  {}
-);
+import mimes from './lib/mimes.js';
+import { init } from './lib/lexer.js';
+import { topLevelLoad } from './lib/loader.js';
 
 const isRouteRequest = (pathname) => !~pathname.split('/').pop().indexOf('.');
-
 const handleRequest = async (req, res) => {
   const pathname = url.parse(req.url).pathname.slice(1);
   if (isRouteRequest(pathname)) {

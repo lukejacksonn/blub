@@ -1,7 +1,6 @@
 {
   "type": "module",
-  "dependencies": {
-    "directory-tree": "^2.2.4",
-    "node-fetch": "^2.6.0"
+  "scripts": {
+    "start": "npx nodemon index.js --ignore 'blob/*'"
   }
 }
