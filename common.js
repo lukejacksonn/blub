@@ -1,70 +1,23 @@
 import fs from 'fs';
-
-export const hasSelf = typeof self !== 'undefined';
-
-const envGlobal = hasSelf ? self : global;
-export { envGlobal as global };
+import crypto from 'crypto';
 
 export const resolvedPromise = Promise.resolve();
-
 export let baseUrl;
 
-// const toURL = (code) =>
-//   'data:text/javascript;charset=utf-8,' + encodeURIComponent(code);
-const toURL = (code) =>
-  'data:text/javascript;base64,' +
-  Buffer.from(code, 'utf-8').toString('base64');
+const hash = (str) => {
+  // change to 'md5' if you want an MD5 hash
+  var h = crypto.createHash('sha1');
+  // change to 'binary' if you want a binary hash.
+  h.setEncoding('hex');
+  h.write(str);
+  h.end();
+  return h.read();
+};
 
 export function createBlob(source) {
-  // console.log(source.slice(0, 100));
-  const uid = Math.random().toString(16).slice(2);
+  const uid = hash(source);
   fs.writeFileSync(`./blob/${uid}.js`, source);
-  // return toURL(source);
-  // return uid;
   return uid;
-}
-
-export const hasDocument = typeof document !== 'undefined';
-
-// support browsers without dynamic import support (eg Firefox 6x)
-export let dynamicImport;
-try {
-  dynamicImport = (0, eval)('u=>import(u)');
-} catch (e) {
-  if (hasDocument) {
-    self.addEventListener('error', (e) => (importShim.e = e.error));
-    dynamicImport = (blobUrl) => {
-      const topLevelBlobUrl = createBlob(
-        `import*as m from'${blobUrl}';self.importShim.l=m;self.importShim.e=null`
-      );
-      const s = document.createElement('script');
-      s.type = 'module';
-      s.src = topLevelBlobUrl;
-      document.head.appendChild(s);
-      return new Promise((resolve, reject) => {
-        s.addEventListener('load', () => {
-          document.head.removeChild(s);
-          importShim.e ? reject(importShim.e) : resolve(importShim.l, baseUrl);
-        });
-      });
-    };
-  }
-}
-
-if (hasDocument) {
-  const baseEl = document.querySelector('base[href]');
-  if (baseEl) baseUrl = baseEl.href;
-}
-
-if (!baseUrl && typeof location !== 'undefined') {
-  baseUrl = location.href.split('#')[0].split('?')[0];
-  const lastSepIndex = baseUrl.lastIndexOf('/');
-  if (lastSepIndex !== -1) baseUrl = baseUrl.slice(0, lastSepIndex + 1);
-}
-
-export let esModuleShimsSrc;
-if (hasDocument) {
-  esModuleShimsSrc = document.currentScript && document.currentScript.src;
 }
 
 const backslashRegEx = /\\/g;

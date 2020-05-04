@@ -1,12 +1,14 @@
 import { init, parse } from './lexer.js';
 import fetch from './fetch.js';
+import fs from 'fs';
+import path from 'path';
+
 import {
   baseUrl as pageBaseUrl,
   resolveImportMap,
   createBlob,
   resolveUrl,
   resolveAndComposeImportMap,
-  hasDocument,
   resolveIfNotPlainOrUrl,
   emptyImportMap,
   resolvedPromise,
@@ -15,7 +17,7 @@ import {
 const registry = {};
 
 async function loadAll(load, seen) {
-  if (load.b || seen[load.u]) return;
+  if (seen[load.u]) return;
   seen[load.u] = 1;
   await load.L;
   return Promise.all(load.d.map((dep) => loadAll(dep, seen)));
@@ -28,10 +30,16 @@ export async function topLevelLoad(url, source) {
   await loadAll(load, seen);
   lastLoad = undefined;
   resolveDeps(load, seen);
-  //   const module = await dynamicImport(load.b);
-  // if the top-level load is a shell, run its update function
-  //   if (load.s) (await dynamicImport(load.s)).u$_(module);
-  return load;
+
+  await loadAll(registry[url], seen);
+  const bundle = Object.keys(seen)
+    .map((k) => registry[k].b)
+    .map((file) => [
+      file,
+      `${fs.readFileSync(path.join('blob/', file + '.js'))}`,
+    ]);
+
+  return [load.b, bundle];
 }
 
 async function importShim(id, parentUrl) {

@@ -3,7 +3,6 @@ import http from 'http';
 import url from 'url';
 import path from 'path';
 import mimetypes from './types.js';
-import directoryTree from './directory-tree.js';
 import { init } from './lexer.js';
 
 import { topLevelLoad } from './es-module-shims.js';
@@ -20,51 +19,41 @@ const handleRequest = async (req, res) => {
   const pathname = url.parse(req.url).pathname.slice(1);
   if (isRouteRequest(pathname)) {
     const entry = path.join(pathname, '/index.js');
-    const filetree = directoryTree(pathname || '.');
-    const load = await topLevelLoad(`http://localhost:8080/${entry}`);
-    let blobs = fs
-      .readdirSync('blob')
-      .map((x) => [
-        x,
-        encodeURIComponent(fs.readFileSync(path.join('blob/', x))),
-      ]);
-    res.write(`
-        <script type="module">
-          let blobs = ${JSON.stringify(blobs)}
-          blobs = Object.fromEntries(blobs.map(([k,v]) => [k, decodeURIComponent(v)]))
+    const [base, bundle] = await topLevelLoad(`http://localhost:8080/${entry}`);
+    const script = `
+      <script type="module">
+      
+        const toURL = (code, type = 'application/javascript') =>
+          URL.createObjectURL(new Blob([code], { type }));
 
-          function toURL(code, type = 'application/javascript') {
-              return URL.createObjectURL(
-                  new Blob([code], { type })
-              );
+        const io = /(from|import)[ \\n]?[\/](.*?)[\/]['"](.*?)['"];?/;
+        const imports = code => (code.match(new RegExp(io, 'gm')) || []).map(
+          x => x.match(new RegExp(io))[3]
+        );
+
+        const remap = (file, mapping) => {
+          for (const i of imports(bundle[file])) {
+            if (!mapping[i]) mapping[i] = remap(i, mapping);
+            bundle[file] = bundle[file].replace(i, mapping[i]);
           }
+          return toURL(bundle[file]);
+        }
 
-          const importExportRegex = /(from|import)[ \\n]?[\/](.*?)[\/]['"](.*?)['"];?/;
-          const importsForCode = code => (code.match(new RegExp(importExportRegex, 'gm')) || []).map(
-            x => x.match(new RegExp(importExportRegex))[3]
-          );
+        const bundle = Object.fromEntries(${JSON.stringify(bundle)});
+        import(remap("${base}", {}));
 
-          const walkTree = (currFile, mapping) => {
-            const b = currFile + '.js';
-            let imports = importsForCode(blobs[b]);
-            for (const i of imports) {
-              const blob = mapping[i];
-              if (!blob) mapping[i] = walkTree(i, mapping);
-              blobs[b] = blobs[b].replace(new RegExp(i, 'g'), mapping[i])
-            }
-            return toURL(blobs[b]);
-          }
-
-          import(walkTree("${load.b}", {}))
-          </script>
-      `);
-    // console.log(${JSON.stringify(filetree)})
-    // import("${await flatten(entry)}")
+      </script>
+    `;
+    res.write(script);
     res.end();
   } else {
     const ext = pathname.replace(/^.*[\.\/\\]/, '').toLowerCase();
     fs.readFile(pathname, 'binary', (err, file) => {
-      if (err) return res.end();
+      if (err) {
+        res.writeHead(404);
+        res.end();
+        return;
+      }
       res.writeHead(200, {
         'Content-Type': mimes[ext] || 'application/octet-stream',
         'Access-Control-Allow-Origin': '*',
