@@ -1,24 +1,22 @@
 # Blub
 
-> analyze and flatten es module dependency graphs on the server
+> resolving es module dependency graphs on the server
 
 Building large javascript programs has never been so easy since es module landed as a JS language feature. There is now official syntax that allows files now reference dependencies which are to be fetched, parsed, linked and evaluated at runtime. This nearly renders the need for a full blown bundler (like rollup or webpack) obsolete in a low latency environment but relying on this "no build" approach when distributing same program over a network can prove problematic.
 
-The intention of this project is to explore and implement a server side solution that mitigates the _request waterfall_ problem associated with resolving es module graphs in the browser.
+The intention of this project is to explore and implement a server side solution that mitigates the _request waterfall_ problem associated with resolving es module graphs in the browser. For now the implementation is in node but eventually I hope to have this working in a Cloudflare worker and paired with the client side component running in a service worker.
 
-For now the implementation is in node but eventually I hope to have this working in a Cloudflare worker and paired with the client side component running in a service worker.
-
-Initial inspiration came from https://docs.google.com/document/d/11t4Ix2bvF1_ZCV9HKfafGfWu82zbOD7aUhZ_FyDAgmA/edit#
+Initial inspiration came from [this proposal](https://docs.google.com/document/d/11t4Ix2bvF1_ZCV9HKfafGfWu82zbOD7aUhZ_FyDAgmA/edit#) and [es-dev-server](https://github.com/open-wc/open-wc). A lot of code has been adapted from [es-module-shims](https://github.com/guybedford/es-module-shims) and [es-module-lexer](https://github.com/guybedford/es-module-lexer) in order to run in a node environment.
 
 ## General Approach
 
-Previously I have used and witnessed `es-module-shims` take an entry point to a module and (from within the browser) at runtime, fetch a file, parse it for import statements and recursivley create object urls from blobs for all the dependencies in a graph, essentially mimicing how modern browsers handle dependency resolution (which makes sense as the library was developed as a polyfill of sorts for such tasks).
+In other projects have witnessed `es-module-shims` take an entry point to a module and (from within the browser) at runtime, fetch a file, parse it for import statements and recursivley create object urls from blobs for all the dependencies in a graph, essentially mimicking how modern browsers handle dependency resolution (which makes sense as the library was developed as a polyfill of sorts for such tasks).
 
 Being able to mimic the import and dependency resolution of browsers is great but doing this in a modern browser doesn't get you very much. The browser still has to fetch and parse each dependency which generates network resuests recursively.. introducting the _waterfall problem_.
 
 > But what if we could do all the dependency resolution – fetching, parsing, linking – on the server?
 
-A high level overview of the steps involved to do dependency resolution on the server:
+Here is a high level overview of the steps involved to do dependency resolution on the server:
 
 1. Resolve dependency graph for a file at a given location using fetch on the server
 2. Create blobs as files (rather then url objects) for every dependency in the dependency graph
@@ -62,7 +60,7 @@ const toURL = (code, type = 'application/javascript') =>
 
 const blob = (file, mapping = {}) => {
     for (const i of imports(bundle[file])) {
-    if (!mapping[i]) mapping[i] = blob(i, mapping);
+        if (!mapping[i]) mapping[i] = blob(i, mapping);
         bundle[file] = bundle[file].replace(i, mapping[i]);
     }
     return toURL(bundle[file]);
@@ -81,9 +79,9 @@ import c from 'blob:http://localhost:1337/431f34f34-389fy893y-iu3gfiugi3g-i3u4if
 console.log(b + c); // => 6
 ```
 
-The main advantage of this approach over a traditional bundler is that the scripts in the bundle haven't been hoisted into one big module scope then, which means, in theory, they can be reused by subsequently loaded modules. That is, the browser could communicate to the server what it has already received and make sure those recouses aren't sent down as part of future bundles.
+The main advantage of this approach over a traditional bundler is that the scripts in the bundle haven't been hoisted into one big module scope, which means, in theory, they can be reused by subsequently loaded modules. The browser could even communicate to the server what it has already received in its request and make sure those seen files aren't sent down again as part of future bundles.
 
-Another benefit of this approach is that import maps can be supported at a server level so for example:
+With this same setup import maps can be supported at a server level too. For example:
 
 ```json
 {
@@ -93,39 +91,21 @@ Another benefit of this approach is that import maps can be supported at a serve
 
 This would tell the bundler that whenever it encounters the bare module specifier `preact` then it should use the file that exists at `https://unpkg.com/browse/preact@10.4.1/dist/preact.module.js`. Every resource that gets seen by the server can be cached both in memory or as a blob file making second and subsequent requests almost instantaneous.
 
-Some of the aforementioned behaviours have been implmented currently and should _just work_ but this project is still a work in progress, some thing might be impossible (or never get implemented) but keep checking back for updates!
+Some of the aforementioned behaviours have been implemented currently and should _just work_ but this project is still a work in progress, some thing might be impossible (or never get implemented) but keep checking back for updates!
 
 ## Initial Findings
 
 Although this project is far from production ready, initial tests have rendered promising results. You can expect to see a 4-5x speedup between loading an unbundled and bundled module over a simulated "Slow 3G" connection and 6x CPU slowdown for an entry point with a dependency graph that includes just a few files.
 
-<details>
-<summary>Small Module (~25 files)</summary>
 <br>
 
-#### Bundled
-
-![Small Module Bundled](https://user-images.githubusercontent.com/1457604/81104321-3df2f900-8f0a-11ea-8b2e-6258e6b0b26a.png)
-
-#### Unbundled
-
-![Small Module not Bundled](https://user-images.githubusercontent.com/1457604/81104333-40555300-8f0a-11ea-894c-06ec7a5b0ad9.png)
-
-</details>
-
-<details>
-<summary>Large Module (~85 files)</summary>
-<br>
-
-#### Bundled
-
-![Large Module Bundled](https://user-images.githubusercontent.com/1457604/81104592-a93ccb00-8f0a-11ea-9727-6e0663fadabf.png)
-
-#### Unbundled
+- **BEFORE (29.03s) :** a module with ~85 files in its dependency graph that get resolved in the browser
 
 ![Large Module not Bundled](https://user-images.githubusercontent.com/1457604/81104599-ac37bb80-8f0a-11ea-8c84-19bcca8e239e.png)
 
-</details>
+- **AFTER (5.84s) :** a module with ~85 files files in its dependency graph that get resolved on the server
+
+![Large Module Bundled](https://user-images.githubusercontent.com/1457604/81104592-a93ccb00-8f0a-11ea-9727-6e0663fadabf.png)
 
 ## Local Development
 
