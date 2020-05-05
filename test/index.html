@@ -2,8 +2,16 @@
   // import 'http://localhost:8080/test/two';
   // import 'http://localhost:8080/test/one';
 </script>
-<button onclick="import('./one/index.js')">Load One Unbundled</button>
-<button onclick="import('http://localhost:8080/one/index.js')">Load One</button>
-<button onclick="import('./two/index.js')">Load Two Unbundled</button>
-<button onclick="import('http://localhost:8080/two/index.js')">Load Two</button>
+<button onclick="import('./one/index.js')">One Unbundled</button>
+<button onclick="import('http://localhost:8080/one/index.js')">
+  One Bundled
+</button>
+<button onclick="import('./two/index.js')">Two Unbundled</button>
+<button onclick="import('http://localhost:8080/two/index.js')">
+  Two Bundled
+</button>
+<button onclick="import('./three/index.js')">Three Unbundled</button>
+<button onclick="import('http://localhost:8080/three/index.js')">
+  Three Bundled
+</button>
 <main></main>

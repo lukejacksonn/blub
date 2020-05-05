@@ -1,5 +1,6 @@
 import http from 'http';
 import url from 'url';
+import zlib from 'zlib';
 
 import { init } from './lib/lexer.js';
 import { topLevelLoad } from './lib/loader.js';
@@ -31,11 +32,13 @@ const handleRequest = async (req, res) => {
 
   `;
 
+  res.removeHeader('Content-Length');
   res.writeHead(200, {
     'Content-Type': 'application/javascript',
     'Access-Control-Allow-Origin': '*',
+    'Content-Encoding': 'gzip',
   });
-  res.write(script);
+  res.write(zlib.gzipSync(script));
   res.end();
 };
 
