@@ -1,6 +1,7 @@
 {
   "type": "module",
   "scripts": {
-    "start": "npx nodemon index.js --ignore 'blob/*'"
+    "start": "npx nodemon index.js --ignore 'blob/*' --ignore 'test/*'",
+    "test": "npx servor test --reload"
   }
 }

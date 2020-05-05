@@ -1,0 +1,9 @@
+<script type="module">
+  // import 'http://localhost:8080/test/two';
+  // import 'http://localhost:8080/test/one';
+</script>
+<button onclick="import('./one/index.js')">Load One Unbundled</button>
+<button onclick="import('http://localhost:8080/test/one')">Load One</button>
+<button onclick="import('./two/index.js')">Load Two Unbundled</button>
+<button onclick="import('http://localhost:8080/test/two')">Load Two</button>
+<main></main>
